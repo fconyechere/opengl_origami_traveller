@@ -235,10 +235,10 @@ void renderLoop(
     GLuint notebookTexture,
     const Landscape& landscape
 ) {
-    const Vec3 cameraTarget = {0.0f, -1.3f, 0.0f};
+    const Vec3 cameraTarget = {0.0f, -0.23f, 0.0f};
     float horizontalCameraOrbitAngle = 0.6f;
-    float verticalCameraOrbitAngle = 0.4f;
-    float cameraOrbitDistance = 4.0f;
+    float verticalCameraOrbitAngle = 0.55f;
+    float cameraOrbitDistance = 2.5f;
     CameraControlState cameraControlState = {
         &horizontalCameraOrbitAngle,
         &verticalCameraOrbitAngle,
