@@ -3,12 +3,13 @@
 
 #include "Mesh.h"
 
+#include <string>
 #include <vector>
 
 class Model {
 public:
-    void addMesh(const std::vector<GLfloat>& positions);
-    void draw() const;
+    void loadFromFile(const std::string& path);
+    void draw(const class Shader& shader) const;
 
 private:
     std::vector<Mesh> meshes_;

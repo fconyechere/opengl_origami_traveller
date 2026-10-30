@@ -17,18 +17,22 @@ Deliverable2/
 │   ├── Mesh.cpp
 │   ├── Model.h   Collection of meshes
 │   └── Model.cpp
-├── assimp/       Existing local Assimp build output; not used yet
 └── CMakeLists.txt
 ```
 
 `main.cpp` creates a window and scene, then runs the render loop. `Shader` loads
 and compiles the GLSL files; `Mesh` owns the vertex array and buffer; `Model`
-groups meshes so the scene can draw them together. The current scene contains
-one triangle. The `assets/` directory is ready for model and texture files, but
-asset importing is not wired up yet.
+groups imported meshes so the scene can draw them together. The current scene
+loads `assets/table.obj` and `assets/notebook.obj` through Assimp. Their OBJ
+material diffuse colors are passed to the fragment shader and combined with
+the directional lighting.
 
-The project builds with the GLFW and GLAD sources already included in
-`Labs/lab4/external`.
+The project builds with the GLFW, GLAD, and Assimp sources already included in
+`Labs/lab4/external`. CMake builds Assimp under the selected build directory
+and enables its OBJ and Collada importers. Assimp is linked to the application
+and `Model` loads OBJ meshes and their normals and material colors. Run the
+executable from the `Deliverable2` directory so the relative `assets/` and
+`shaders/` paths resolve correctly.
 
 ## Build and run
 

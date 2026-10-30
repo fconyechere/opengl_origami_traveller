@@ -119,3 +119,30 @@ Shader& Shader::operator=(Shader&& other) noexcept {
 void Shader::use() const {
     glUseProgram(program_);
 }
+
+void Shader::setMatrix4(const std::string& uniformName, const Mat4& matrix) const {
+    const GLint uniformLocation = glGetUniformLocation(program_, uniformName.c_str());
+    if (uniformLocation == -1) {
+        throw std::runtime_error("Shader uniform not found: " + uniformName);
+    }
+
+    glUniformMatrix4fv(uniformLocation, 1, GL_FALSE, matrix.values);
+}
+
+void Shader::setVector3(const std::string& uniformName, const Vec3& vector) const {
+    const GLint uniformLocation = glGetUniformLocation(program_, uniformName.c_str());
+    if (uniformLocation == -1) {
+        throw std::runtime_error("Shader uniform not found: " + uniformName);
+    }
+
+    glUniform3f(uniformLocation, vector.x, vector.y, vector.z);
+}
+
+void Shader::setInteger(const std::string& uniformName, GLint value) const {
+    const GLint uniformLocation = glGetUniformLocation(program_, uniformName.c_str());
+    if (uniformLocation == -1) {
+        throw std::runtime_error("Shader uniform not found: " + uniformName);
+    }
+
+    glUniform1i(uniformLocation, value);
+}

@@ -1,6 +1,8 @@
 #ifndef DELIVERABLE2_SHADER_H
 #define DELIVERABLE2_SHADER_H
 
+#include "GraphicsMath.h"
+
 #include <glad/gl.h>
 
 #include <string>
@@ -17,6 +19,9 @@ public:
     Shader& operator=(Shader&& other) noexcept;
 
     void use() const;
+    void setMatrix4(const std::string& uniformName, const Mat4& matrix) const;
+    void setVector3(const std::string& uniformName, const Vec3& vector) const;
+    void setInteger(const std::string& uniformName, GLint value) const;
 
 private:
     GLuint program_;
