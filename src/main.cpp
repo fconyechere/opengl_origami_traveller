@@ -10,6 +10,7 @@
 #include <stb_image.h>
 
 #include <exception>
+#include <array>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -18,117 +19,118 @@
 namespace {
 
 void resizeFramebuffer(GLFWwindow*, int width, int height) {
+    // Keep the viewport in sync when the window changes size.
     glViewport(0, 0, width, height);
 }
 
+// The camera orbits around the scene instead of moving completely freely.
 struct CameraControlState {
-    float* horizontalCameraOrbitAngle;
-    float* verticalCameraOrbitAngle;
-    float* cameraOrbitDistance;
-    bool isDragging;
-    double previousMousePositionX;
-    double previousMousePositionY;
+    float* horizontalOrbitAngle;
+    float* orbitElevationRadians;
+    float* orbitRadius;
+    bool isOrbitDragging;
+    double lastCursorX;
+    double lastCursorY;
 };
 
-void mouseButtonCallback(
-    GLFWwindow* window,
-    int button,
-    int action,
-    int
+float clampValue(float value, float minimum, float maximum) {
+    // Stops the camera from going past sensible angles or distances.
+    if (value < minimum) {
+        return minimum;
+    }
+    if (value > maximum) {
+        return maximum;
+    }
+    return value;
+}
+
+void updateCameraFromKeyboard( GLFWwindow* renderWindow, float frameDeltaSeconds, CameraControlState& camera) {
+    // Keyboard movement is scaled by delta time so it feels consistent at  different frame rates.
+    const float orbitSpeed = frameDeltaSeconds;
+
+    // WASD rotates the camera around the scene, and the arrow keys zoom in and out.
+    if (glfwGetKey(renderWindow, GLFW_KEY_A) == GLFW_PRESS) {
+        *camera.horizontalOrbitAngle += orbitSpeed;
+    }
+    if (glfwGetKey(renderWindow, GLFW_KEY_D) == GLFW_PRESS) {
+        *camera.horizontalOrbitAngle -= orbitSpeed;
+    }
+    if (glfwGetKey(renderWindow, GLFW_KEY_W) == GLFW_PRESS) {
+        *camera.orbitElevationRadians = clampValue( *camera.orbitElevationRadians + orbitSpeed, -1.5f, 1.5f );
+    }
+    if (glfwGetKey(renderWindow, GLFW_KEY_S) == GLFW_PRESS) {
+        *camera.orbitElevationRadians = clampValue( *camera.orbitElevationRadians - orbitSpeed, -1.5f, 1.5f);
+    }
+    if (glfwGetKey(renderWindow, GLFW_KEY_UP) == GLFW_PRESS) {
+        *camera.orbitRadius = clampValue( *camera.orbitRadius + orbitSpeed, 0.8f, 10.0f);
+    }
+    if (glfwGetKey(renderWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        *camera.orbitRadius = clampValue(*camera.orbitRadius - orbitSpeed, 0.8f, 10.0f);
+    }
+}
+
+Vec3 calculateOrbitPosition(
+    const Vec3& target,
+    float horizontalAngle,
+    float elevationRadians,
+    float radius
 ) {
-    CameraControlState* cameraControlState =
+    // Convert the orbit angles and distance into an actual camera position.
+    const float horizontalRadius =
+        radius * std::cos(elevationRadians);
+    return {
+        target.x + horizontalRadius * std::sin(horizontalAngle),
+        target.y + radius * std::sin(elevationRadians),
+        target.z + horizontalRadius * std::cos(horizontalAngle)
+    };
+}
+
+// Start and stop orbiting when the left mouse button is pressed.
+void mouseButtonCallback(GLFWwindow* renderWindow, int button, int action, int) {
+    CameraControlState* orbitInputState =
         static_cast<CameraControlState*>(
-            glfwGetWindowUserPointer(window)
+            glfwGetWindowUserPointer(renderWindow)
         );
 
-    if (cameraControlState == nullptr ||
+    if (orbitInputState == nullptr ||
         button != GLFW_MOUSE_BUTTON_LEFT) {
         return;
     }
 
     if (action == GLFW_PRESS) {
-        cameraControlState->isDragging = true;
-        glfwGetCursorPos(
-            window,
-            &cameraControlState->previousMousePositionX,
-            &cameraControlState->previousMousePositionY
-        );
+        orbitInputState->isOrbitDragging = true;
+        glfwGetCursorPos( renderWindow, &orbitInputState->lastCursorX, &orbitInputState->lastCursorY);
     } else if (action == GLFW_RELEASE) {
-        cameraControlState->isDragging = false;
+        orbitInputState->isOrbitDragging = false;
     }
 }
 
-void cursorPositionCallback(
-    GLFWwindow* window,
-    double currentMousePositionX,
-    double currentMousePositionY
-) {
-    CameraControlState* cameraControlState =
+// While dragging, horizontal movement rotates around the scene and vertical
+// movement changes the camera height.
+void cursorPositionCallback(GLFWwindow* renderWindow, double cursorX, double cursorY) {
+    CameraControlState* orbitInputState =
         static_cast<CameraControlState*>(
-            glfwGetWindowUserPointer(window)
+            glfwGetWindowUserPointer(renderWindow)
         );
 
-    if (cameraControlState == nullptr ||
-        !cameraControlState->isDragging) {
+    if (orbitInputState == nullptr ||
+        !orbitInputState->isOrbitDragging) {
         return;
     }
 
-    const double mouseMovementX =
-        currentMousePositionX -
-        cameraControlState->previousMousePositionX;
-    const double mouseMovementY =
-        currentMousePositionY -
-        cameraControlState->previousMousePositionY;
+    const double cursorDeltaX = cursorX - orbitInputState->lastCursorX;
+    const double cursorDeltaY = cursorY - orbitInputState->lastCursorY;
 
-    cameraControlState->previousMousePositionX = currentMousePositionX;
-    cameraControlState->previousMousePositionY = currentMousePositionY;
+    orbitInputState->lastCursorX = cursorX;
+    orbitInputState->lastCursorY = cursorY;
 
-    *cameraControlState->horizontalCameraOrbitAngle +=
-        static_cast<float>(mouseMovementX) * 0.005f;
+    *orbitInputState->horizontalOrbitAngle += static_cast<float>(cursorDeltaX) * 0.005f;
 
-    const float proposedVerticalCameraOrbitAngle =
-        *cameraControlState->verticalCameraOrbitAngle -
-        static_cast<float>(mouseMovementY) * 0.005f;
-
-    if (proposedVerticalCameraOrbitAngle > 1.5f) {
-        *cameraControlState->verticalCameraOrbitAngle = 1.5f;
-    } else if (proposedVerticalCameraOrbitAngle < -1.5f) {
-        *cameraControlState->verticalCameraOrbitAngle = -1.5f;
-    } else {
-        *cameraControlState->verticalCameraOrbitAngle =
-            proposedVerticalCameraOrbitAngle;
-    }
-}
-
-void scrollCallback(
-    GLFWwindow* window,
-    double,
-    double scrollMovementY
-) {
-    CameraControlState* cameraControlState =
-        static_cast<CameraControlState*>(
-            glfwGetWindowUserPointer(window)
-        );
-
-    if (cameraControlState == nullptr) {
-        return;
-    }
-
-    const float proposedCameraOrbitDistance =
-        *cameraControlState->cameraOrbitDistance -
-        static_cast<float>(scrollMovementY) * 0.3f;
-
-    if (proposedCameraOrbitDistance < 1.5f) {
-        *cameraControlState->cameraOrbitDistance = 1.5f;
-    } else if (proposedCameraOrbitDistance > 10.0f) {
-        *cameraControlState->cameraOrbitDistance = 10.0f;
-    } else {
-        *cameraControlState->cameraOrbitDistance =
-            proposedCameraOrbitDistance;
-    }
+    *orbitInputState->orbitElevationRadians = clampValue( *orbitInputState->orbitElevationRadians - static_cast<float>(cursorDeltaY) * 0.005f, -1.5f, 1.5f);
 }
 
 GLFWwindow* createWindow() {
+    // Set up the OpenGL window and the callbacks needed by the renderer.
     if (glfwInit() == 0) {
         throw std::runtime_error("Failed to initialize GLFW");
     }
@@ -140,42 +142,39 @@ GLFWwindow* createWindow() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL Starter", nullptr, nullptr);
-    if (window == nullptr) {
+    GLFWwindow* renderWindow = glfwCreateWindow(800, 600, "OpenGL Starter", nullptr, nullptr);
+    if (renderWindow == nullptr) {
         glfwTerminate();
-        throw std::runtime_error("Failed to create an OpenGL window");
+        throw std::runtime_error("Failed to create an OpenGL renderWindow");
     }
 
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, resizeFramebuffer);
+    glfwMakeContextCurrent(renderWindow);
+    glfwSetFramebufferSizeCallback(renderWindow, resizeFramebuffer);
 
     if (gladLoadGL(glfwGetProcAddress) == 0) {
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(renderWindow);
         glfwTerminate();
         throw std::runtime_error("Failed to load OpenGL functions with GLAD");
     }
 
+    // Depth testing makes nearer objects correctly hide objects behind them.
     glEnable(GL_DEPTH_TEST);
 
     int framebufferWidth = 0;
     int framebufferHeight = 0;
-    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    glfwGetFramebufferSize(renderWindow, &framebufferWidth, &framebufferHeight);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
-    return window;
+    return renderWindow;
 }
 
 GLuint loadNotebookTexture(const std::string& path) {
+    // Load the notebook image once and turn it into an OpenGL texture.
     int imageWidth = 0;
     int imageHeight = 0;
     int imageChannels = 0;
     stbi_set_flip_vertically_on_load(1);
-    unsigned char* imageData = stbi_load(
-        path.c_str(),
-        &imageWidth,
-        &imageHeight,
-        &imageChannels,
-        0
-    );
+    unsigned char* imageData = stbi_load(path.c_str(), &imageWidth, &imageHeight, &imageChannels,0);
+    
     if (imageData == nullptr) {
         throw std::runtime_error(
             "Could not load notebook texture: " + path
@@ -183,9 +182,11 @@ GLuint loadNotebookTexture(const std::string& path) {
     }
 
     GLenum imageFormat = GL_RGB;
+    
     if (imageChannels == 4) {
         imageFormat = GL_RGBA;
-    } else if (imageChannels != 3) {
+    } 
+    else if (imageChannels != 3) {
         stbi_image_free(imageData);
         throw std::runtime_error(
             "Notebook texture must contain RGB or RGBA pixels"
@@ -200,6 +201,7 @@ GLuint loadNotebookTexture(const std::string& path) {
     }
 
     glBindTexture(GL_TEXTURE_2D, texture);
+    // Repeat and filtering make the texture look reasonable on the notebook.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -222,172 +224,251 @@ GLuint loadNotebookTexture(const std::string& path) {
 }
 
 Model createScene() {
-    Model scene;
-    scene.loadFromFile("assets/table.obj");
-    scene.loadFromFile("assets/notebook.obj");
-    return scene;
+    // Both imported models are kept in one scene object and drawn together.
+    Model notebookScene;
+    notebookScene.loadFromFile("assets/table.obj");
+    notebookScene.loadFromFile("assets/notebook.obj");
+    return notebookScene;
 }
 
-void renderLoop(
-    GLFWwindow* window,
-    const Shader& shader,
-    const Model& scene,
-    GLuint notebookTexture,
-    const Landscape& landscape
-) {
-    const Vec3 cameraTarget = {0.0f, -0.23f, 0.0f};
-    float horizontalCameraOrbitAngle = 0.6f;
-    float verticalCameraOrbitAngle = 0.55f;
-    float cameraOrbitDistance = 2.5f;
-    CameraControlState cameraControlState = {
-        &horizontalCameraOrbitAngle,
-        &verticalCameraOrbitAngle,
-        &cameraOrbitDistance,
+void renderLoop(GLFWwindow* renderWindow, const Shader& sceneShader, const Model& notebookScene, GLuint paperTexture, const Landscape& paperLandscape, const Model& traveler) {
+    // Everything that changes every frame lives in this loop.
+    const Vec3 miniatureWorldTarget = {0.0f, -0.23f, 0.0f};
+    float horizontalOrbitAngle = 0.6f;
+    float orbitElevationRadians = 0.55f;
+    float orbitRadius = 1.8f;
+    
+    CameraControlState orbitInputState = {
+        &horizontalOrbitAngle,
+        &orbitElevationRadians,
+        &orbitRadius,
         false,
         0.0,
         0.0
     };
 
-    glfwSetWindowUserPointer(window, &cameraControlState);
-    glfwSetMouseButtonCallback(window, mouseButtonCallback);
-    glfwSetCursorPosCallback(window, cursorPositionCallback);
-    glfwSetScrollCallback(window, scrollCallback);
+    // GLFW callbacks use this pointer to access the current camera state.
+    glfwSetWindowUserPointer(renderWindow, &orbitInputState);
+    glfwSetMouseButtonCallback(renderWindow, mouseButtonCallback);
+    glfwSetCursorPosCallback(renderWindow, cursorPositionCallback);
 
-    const float cameraPositionX =
-        cameraOrbitDistance * std::cos(verticalCameraOrbitAngle) * std::sin(horizontalCameraOrbitAngle);
+    const Vec3 worldUp = {0.0f, 1.0f, 0.0f};
+    // The light points from this position towards the middle of the scene.
+    const Vec3 lampPosition = {-3.0f, 3.0f, 3.0f};
+    const Vec3 lampTarget = {0.0f, -0.33f, 0.0f};
+    const Vec3 lampDirection = normalize(subtract(lampTarget, lampPosition));
+    const float fieldOfViewRadians = 60.0f * 3.14159265359f / 180.0f;
+    const float nearClipDistance = 0.1f;
+    const float farClipDistance = 100.0f;
+    const float sceneRotationSpeedRadians = 0.8f;
 
-    const float cameraPositionY =
-        cameraOrbitDistance * std::sin(verticalCameraOrbitAngle);
-    
-    const float cameraPositionZ =
-        cameraOrbitDistance * std::cos(verticalCameraOrbitAngle) * std::cos(horizontalCameraOrbitAngle);
+    float previousFrameTimestamp = static_cast<float>(glfwGetTime());
 
-    const Vec3 cameraPosition = {cameraTarget.x + cameraPositionX, cameraTarget.y + cameraPositionY, cameraTarget.z + cameraPositionZ};
-    const Vec3 worldUpDirection = {0.0f, 1.0f, 0.0f};
-    const Vec3 windowLightPosition = {-3.0f, 3.0f, 3.0f};
-    const Vec3 windowLightTarget = {0.0f, -0.33f, 0.0f};
-    const Vec3 lightDirection =
-        normalize(subtract(windowLightTarget, windowLightPosition));
-    const float verticalFieldOfViewRadians = 60.0f * 3.14159265359f / 180.0f;
-    const float nearClippingPlane = 0.1f;
-    const float farClippingPlane = 100.0f;
-    const float rotationRadiansPerSecond = 0.8f;
-
-    float lastFrameTime = static_cast<float>(glfwGetTime());
-    if(verticalCameraOrbitAngle > 1.5f){
-        verticalCameraOrbitAngle = 1.5f;
-    } 
-    else if(verticalCameraOrbitAngle < -1.5f){
-        verticalCameraOrbitAngle = -1.5f;
-    }
-
-    while (glfwWindowShouldClose(window) == 0) {
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window, 1);
+    while (glfwWindowShouldClose(renderWindow) == 0) {
+        // Escape is handled here so the main loop can shut down cleanly.
+        if (glfwGetKey(renderWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(renderWindow, 1);
         }
 
-        const float currentFrameTime = static_cast<float>(glfwGetTime());
-        const float deltaTime = currentFrameTime - lastFrameTime;
-        lastFrameTime = currentFrameTime;
+        // Work out how much time passed since the previous frame.
+        const float frameTimestamp = static_cast<float>(glfwGetTime());
+        const float frameDeltaSeconds = frameTimestamp - previousFrameTimestamp;
+        previousFrameTimestamp = frameTimestamp;
 
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            horizontalCameraOrbitAngle += deltaTime *  1.0f;
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            horizontalCameraOrbitAngle -= deltaTime *  1.0f;
-        }
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            if(verticalCameraOrbitAngle + deltaTime *  1.0f > 1.5f){
-                verticalCameraOrbitAngle = 1.5f;
-            }
-            else{
-                verticalCameraOrbitAngle += deltaTime *  1.0f;
-            }
-        }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            if(verticalCameraOrbitAngle < -1.5f || verticalCameraOrbitAngle - deltaTime *  1.0f < -1.5f){
-                verticalCameraOrbitAngle = -1.5f;
-            }
-            else{
-                verticalCameraOrbitAngle -= deltaTime *  1.0f;
-            }
-        }
-        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-            if(cameraOrbitDistance + deltaTime *  1.0f > 10.0f){
-                cameraOrbitDistance = 10.0f;
-            }
-            else{
-                cameraOrbitDistance += deltaTime *  1.0f;
-            }
-        }
-        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-            if(cameraOrbitDistance - deltaTime *  1.0f < 1.5f){
-                cameraOrbitDistance = 1.5f;
-            }
-            else{
-                cameraOrbitDistance -= deltaTime *  1.0f;
-            }
-        }
+        updateCameraFromKeyboard(
+            renderWindow,
+            frameDeltaSeconds,
+            orbitInputState
+        );
 
-        const float cameraPositionX =
-            cameraOrbitDistance * std::cos(verticalCameraOrbitAngle) * std::sin(horizontalCameraOrbitAngle);
-        const float cameraPositionY =
-            cameraOrbitDistance * std::sin(verticalCameraOrbitAngle);
-        const float cameraPositionZ =
-            cameraOrbitDistance * std::cos(verticalCameraOrbitAngle) * std::cos(horizontalCameraOrbitAngle);
+        // Recalculate the camera position after any keyboard or mouse input.
+        const Vec3 viewerPosition = calculateOrbitPosition(
+            miniatureWorldTarget,
+            horizontalOrbitAngle,
+            orbitElevationRadians,
+            orbitRadius
+        );
 
-        const Vec3 cameraPosition = {
-            cameraTarget.x + cameraPositionX,
-            cameraTarget.y + cameraPositionY,
-            cameraTarget.z + cameraPositionZ
-        };
-
+        // Start with a clean colour buffer and depth buffer for this frame.
         glClearColor(0.12f, 0.07f, 0.035f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         int framebufferWidth = 0;
         int framebufferHeight = 0;
-        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+        glfwGetFramebufferSize(renderWindow, &framebufferWidth, &framebufferHeight);
         const float aspectRatio =
             static_cast<float>(framebufferWidth) /
             static_cast<float>(framebufferHeight);
 
-        const float elapsedTimeSeconds = static_cast<float>(glfwGetTime());
+        const float animationTimeSeconds = static_cast<float>(glfwGetTime());
     
-        //model, view and projection matrices
-        const Mat4 modelMatrix = identityMatrix();
-        const Mat4 viewMatrix =
-            lookAt(cameraPosition, cameraTarget, worldUpDirection);
-        const Mat4 projectionMatrix = perspective(
-            verticalFieldOfViewRadians,
+        // Model = object placement, view = camera, projection = perspective.
+        const Mat4 worldModelMatrix = identityMatrix();
+        const Mat4 cameraViewMatrix = lookAt(viewerPosition, miniatureWorldTarget, worldUp);
+        const Mat4 cameraProjectionMatrix = perspective(
+            fieldOfViewRadians,
             aspectRatio,
-            nearClippingPlane,
-            farClippingPlane
+            nearClipDistance,
+            farClipDistance
         );
-        const Mat4 viewModelMatrix = multiply(viewMatrix, modelMatrix);
-        const Mat4 combinedTransformationMatrix =
-            multiply(projectionMatrix, viewModelMatrix);
+        const Mat4 cameraModelViewMatrix = multiply(cameraViewMatrix, worldModelMatrix);
+        const Mat4 combinedTransformationMatrix = multiply(cameraProjectionMatrix, cameraModelViewMatrix);
 
-        shader.use();
-        shader.setMatrix4(
-            "combinedTransformationMatrix",
-            combinedTransformationMatrix
-        );
+        // These uniforms are shared by the table, notebook, and landscape.
+        sceneShader.use();
+        sceneShader.setMatrix4("combinedTransformationMatrix", combinedTransformationMatrix);
 
-        shader.setMatrix4(
-            "modelMatrix",
-            modelMatrix
-        );
-        shader.setVector3("lightDirection", lightDirection);
-        shader.setVector3("lightPosition", windowLightPosition);
+        sceneShader.setMatrix4("modelMatrix", worldModelMatrix);
+        sceneShader.setVector3("lightDirection", lampDirection);
+        sceneShader.setVector3("lightPosition", lampPosition);
 
+        // Bind the notebook image to texture unit 0 before drawing.
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, notebookTexture);
-        shader.setInteger("notebookTexture", 0);
-        scene.draw(shader);
-        landscape.draw(shader);
+        glBindTexture(GL_TEXTURE_2D, paperTexture);
+        sceneShader.setInteger("notebookTexture", 0);
+        notebookScene.draw(sceneShader);
+        paperLandscape.draw(sceneShader);
 
-        glfwSwapBuffers(window); 
+        // Build the traveler's animation from a root transform and child
+        // transforms. Each limb inherits the movement of its parent.
+        const Mat4 characterTranslation = translation({0.0f, -0.23f, 0.0f});
+        const Mat4 characterScale = scale({0.15f, 0.15f, 0.15f});
+        const Mat4 characterFacingRotation = rotationY(-0.6f);
+
+        // Sine gives us a smooth repeating animation between 0 and 1.
+        const float jumpingJackCycle = animationTimeSeconds * 3.0f;
+        const float jumpingJackAmount = (std::sin(jumpingJackCycle) + 1.0f) * 0.5f;
+        const float jumpingJackBob = jumpingJackAmount * 0.035f;
+        const Mat4 characterRootTransformation = multiply(characterTranslation, multiply(translation({0.0f, jumpingJackBob, 0.0f}), multiply(characterFacingRotation, characterScale)));
+        const float jumpingJackAngle = jumpingJackAmount * 0.55f;
+        const float leftLegAngle = -jumpingJackAngle;
+        const float rightLegAngle = jumpingJackAngle;
+        
+        // Rotate each limb around its joint: move to the joint, rotate, then
+        // move back. Rotating without this would swing it around the origin.
+        const Mat4 leftHipTransformation = 
+            multiply(characterRootTransformation, 
+                multiply( translation({-0.10f, 0.32f, 0.0f}), 
+                    multiply(rotationZ(leftLegAngle), 
+                    translation({0.10f, -0.32f, 0.0f}))));
+        
+        const Mat4 rightHipTransformation =
+            multiply(
+                characterRootTransformation,
+                multiply(
+                    translation({0.10f, 0.32f, 0.0f}),
+                    multiply(
+                        rotationZ(rightLegAngle),
+                        translation({-0.10f, -0.32f, 0.0f})
+                    )
+                )
+            );
+        const Mat4 leftKneeTransformation =
+            multiply(
+                leftHipTransformation,
+                multiply(
+                    translation({-0.10f, 0.16f, 0.0f}),
+                    multiply(
+                        rotationZ(-leftLegAngle * 0.45f),
+                        translation({0.10f, -0.16f, 0.0f})
+                    )
+                )
+            );
+        const Mat4 rightKneeTransformation =
+            multiply(
+                rightHipTransformation,
+                multiply(
+                    translation({0.10f, 0.16f, 0.0f}),
+                    multiply(
+                        rotationZ(-rightLegAngle * 0.45f),
+                        translation({-0.10f, -0.16f, 0.0f})
+                    )
+                )
+            );
+        const Mat4 leftShoulderTransformation =
+            multiply(
+                characterRootTransformation,
+                multiply(
+                    translation({-0.18f, 0.62f, 0.0f}),
+                    multiply(
+                        rotationZ(-jumpingJackAngle),
+                        translation({0.18f, -0.62f, 0.0f})
+                    )
+                )
+            );
+        const Mat4 rightShoulderTransformation =
+            multiply(
+                characterRootTransformation,
+                multiply(
+                    translation({0.18f, 0.62f, 0.0f}),
+                    multiply(
+                        rotationZ(jumpingJackAngle),
+                        translation({-0.18f, -0.62f, 0.0f})
+                    )
+                )
+            );
+        const Mat4 leftHandTransformation =
+            multiply(
+                leftShoulderTransformation,
+                multiply(
+                    translation({-0.30f, 0.51f, 0.0f}),
+                    multiply(
+                        rotationZ(-jumpingJackAngle * 0.25f),
+                        translation({0.30f, -0.51f, 0.0f})
+                    )
+                )
+            );
+        const Mat4 rightHandTransformation =
+            multiply(
+                rightShoulderTransformation,
+                multiply(
+                    translation({0.30f, 0.51f, 0.0f}),
+                    multiply(
+                        rotationZ(jumpingJackAngle * 0.25f),
+                        translation({-0.30f, -0.51f, 0.0f})
+                    )
+                )
+            );
+        // Start every part at the root, then override the parts that animate.
+        std::array<Mat4, static_cast<std::size_t>(CharacterPart::Count)>
+            characterPartModelMatrices;
+        characterPartModelMatrices.fill(characterRootTransformation);
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::LeftArm)
+        ] = leftShoulderTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::RightArm)
+        ] = rightShoulderTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::LeftHand)
+        ] = leftHandTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::RightHand)
+        ] = rightHandTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::LeftLeg)
+        ] = leftHipTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::RightLeg)
+        ] = rightHipTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::LeftCalf)
+        ] = leftKneeTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::RightCalf)
+        ] = rightKneeTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::LeftFoot)
+        ] = leftKneeTransformation;
+        characterPartModelMatrices[
+            static_cast<std::size_t>(CharacterPart::RightFoot)
+        ] = rightKneeTransformation;
+        // The character uses a separate model matrix for each body part.
+        const Mat4 viewProjectionMatrix = multiply(cameraProjectionMatrix, cameraViewMatrix);
+        traveler.drawCharacter( sceneShader, viewProjectionMatrix, characterPartModelMatrices);
+
+        // Show the finished back buffer, then collect the next input events.
+        glfwSwapBuffers(renderWindow); 
         glfwPollEvents();
     }
 }
@@ -395,41 +476,47 @@ void renderLoop(
 } // namespace
 
 int main() {
-    GLFWwindow* window = nullptr;
-    GLuint notebookTexture = 0;
+    GLFWwindow* renderWindow = nullptr;
+    GLuint paperTexture = 0;
 
     try {
-        window = createWindow();
+        // Create the GPU resources and scene objects before entering the loop.
+        renderWindow = createWindow();
 
-        const std::string shaderDirectory = "shaders";
-        const Shader shader(
-            shaderDirectory + "/scene.vert",
-            shaderDirectory + "/scene.frag"
-        );
-        const Model scene = createScene();
-        const Landscape landscape;
-        notebookTexture = loadNotebookTexture(
-            "assets/textures/notebook-paper.jpg"
-        );
+        const std::string sceneShaderDirectory = "shaders";
+        const Shader sceneShader( sceneShaderDirectory + "/scene.vert", sceneShaderDirectory + "/scene.frag");
+        const Model notebookScene = createScene();
+        const Landscape paperLandscape;
+        Model traveler;
+        traveler.loadCharacterFromFile( "assets/origami_traveler/origami_traveler.obj");
+        paperTexture = loadNotebookTexture("assets/textures/notebook-paper.jpg");
 
-        renderLoop(window, shader, scene, notebookTexture, landscape);
+        renderLoop(
+            renderWindow,
+            sceneShader,
+            notebookScene,
+            paperTexture,
+            paperLandscape,
+            traveler
+        );
 
     } catch (const std::exception& error) {
+        // Report setup/render errors and release anything that was created.
         std::cerr << error.what() << '\n';
-        if (notebookTexture != 0) {
-            glDeleteTextures(1, &notebookTexture);
+        if (paperTexture != 0) {
+            glDeleteTextures(1, &paperTexture);
         }
-        if (window != nullptr) {
-            glfwDestroyWindow(window);
+        if (renderWindow != nullptr) {
+            glfwDestroyWindow(renderWindow);
             glfwTerminate();
         }
         return 1;
     }
 
-    if (notebookTexture != 0) {
-        glDeleteTextures(1, &notebookTexture);
+    if (paperTexture != 0) {
+        glDeleteTextures(1, &paperTexture);
     }
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(renderWindow);
     glfwTerminate();
     return 0;
 }

@@ -1,5 +1,7 @@
 #include "Shader.h"
 
+#include <glm/gtc/type_ptr.hpp>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -126,7 +128,7 @@ void Shader::setMatrix4(const std::string& uniformName, const Mat4& matrix) cons
         throw std::runtime_error("Shader uniform not found: " + uniformName);
     }
 
-    glUniformMatrix4fv(uniformLocation, 1, GL_FALSE, matrix.values);
+    glUniformMatrix4fv(uniformLocation, 1, GL_FALSE, glm::value_ptr(matrix));
 }
 
 void Shader::setVector3(const std::string& uniformName, const Vec3& vector) const {

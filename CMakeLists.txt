@@ -10,6 +10,7 @@ find_package(OpenGL REQUIRED)
 get_filename_component(LAB4_ROOT "${CMAKE_CURRENT_LIST_DIR}/../Labs/lab4" ABSOLUTE)
 set(GLFW_ROOT "${LAB4_ROOT}/external/glfw-3.1.2")
 set(GLAD_ROOT "${LAB4_ROOT}/external/glad-3.3")
+set(GLM_ROOT "${LAB4_ROOT}/external/glm-0.9.7.1")
 set(ASSIMP_ROOT "${LAB4_ROOT}/external/assimp")
 
 if (NOT EXISTS "${GLFW_ROOT}/CMakeLists.txt")
@@ -53,6 +54,7 @@ add_executable(deliverable2
 target_include_directories(deliverable2 PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/src"
     "${GLFW_ROOT}/include"
+    "${GLM_ROOT}"
     "${ASSIMP_ROOT}/contrib/stb"
 )
 target_link_libraries(deliverable2 PRIVATE OpenGL::GL glfw glad assimp::assimp)

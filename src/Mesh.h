@@ -9,13 +9,7 @@
 
 class Mesh {
 public:
-    explicit Mesh(
-        const std::vector<GLfloat>& positions,
-        const std::vector<GLfloat>& normals,
-        const Vec3& materialColor,
-        const std::vector<GLfloat>& textureCoordinates,
-        bool usesTexture
-    );
+    explicit Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& normals, const Vec3& materialColor, const std::vector<GLfloat>& textureCoordinates, bool usesTexture);
     ~Mesh();
 
     Mesh(const Mesh&) = delete;

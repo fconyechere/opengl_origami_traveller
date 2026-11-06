@@ -5,13 +5,7 @@
 #include <limits>
 #include <stdexcept>
 
-Mesh::Mesh(
-    const std::vector<GLfloat>& positions,
-    const std::vector<GLfloat>& normals,
-    const Vec3& materialColor,
-    const std::vector<GLfloat>& textureCoordinates,
-    bool usesTexture
-)
+Mesh::Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& normals, const Vec3& materialColor, const std::vector<GLfloat>& textureCoordinates, bool usesTexture)
     : vertexArray_(0),
       vertexBuffer_(0),
       normalBuffer_(0),

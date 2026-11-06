@@ -27,6 +27,10 @@ loads `assets/table.obj` and `assets/notebook.obj` through Assimp. Their OBJ
 material diffuse colors are passed to the fragment shader and combined with
 the directional lighting.
 
+The project uses the GLM math library supplied with Lab 4 for vectors and
+matrices. `src/GraphicsMath.h` keeps the scene's existing helper names while
+delegating the calculations to GLM.
+
 The project builds with the GLFW, GLAD, and Assimp sources already included in
 `Labs/lab4/external`. CMake builds Assimp under the selected build directory
 and enables its OBJ and Collada importers. Assimp is linked to the application
