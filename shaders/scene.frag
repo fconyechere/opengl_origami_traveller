@@ -13,6 +13,7 @@ uniform int usesTexture;
 out vec4 fragmentColor;
 
 void main() {
+    // Start with a little ambient light so the unlit side is not pitch black.
     const float ambientBrightness = 0.18;
     const float innerCutoff = 0.95106;
     const float outerCutoff = 0.86603;
@@ -20,6 +21,7 @@ void main() {
     const float attenuationLinear = 0.09;
     const float attenuationQuadratic = 0.032;
 
+    // Work out how the current pixel sits relative to the spotlight.
     vec3 fragDirectionToLight =
         normalize(lightPosition - transformedWorldPosition);
     vec3 fragDirectionFromLight =
@@ -30,10 +32,12 @@ void main() {
     float spotlightIntensity = smoothstep(outerCutoff, innerCutoff, spotlightOnFrag);
 
     vec3 normalizedNormal = normalize(transformedNormal);
+    // Lambert diffuse lighting: surfaces facing the light get brighter.
     float diffuseBrightness =
         max(dot(normalizedNormal, fragDirectionToLight), 0.0);
 
     float distanceToLight = length(lightPosition - transformedWorldPosition);
+    // The light fades with distance instead of staying equally bright.
     float attenuation =
         1.0 / (
             attenuationConstant +
@@ -48,6 +52,7 @@ void main() {
         min(ambientBrightness + spotlightDiffuseBrightness, 1.0);
 
     
+    // Most objects use a flat material colour; notebook pages use the image.
     vec3 surfaceColor = materialColor;
     if (usesTexture == 1) {
         surfaceColor = texture(notebookTexture, transformedTextureCoordinate).rgb;

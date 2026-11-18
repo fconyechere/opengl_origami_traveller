@@ -4,38 +4,28 @@
 #include "Mesh.h"
 
 #include <string>
-#include <array>
 #include <vector>
-
-enum class CharacterPart {
-    Face,
-    Body,
-    LeftArm,
-    RightArm,
-    LeftHand,
-    RightHand,
-    LeftLeg,
-    RightLeg,
-    LeftCalf,
-    RightCalf,
-    LeftFoot,
-    RightFoot,
-    Count
-};
 
 class Model {
 public:
     void loadFromFile(const std::string& path);
-    void loadCharacterFromFile(const std::string& path);
-    void draw(const class Shader& shader) const;
-    void draw(const class Shader& shader, const Mat4& modelMatrix) const;
-    void drawCharacter(const class Shader& shader, const Mat4& viewProjectionMatrix, const std::array<Mat4, static_cast<std::size_t>(CharacterPart::Count)>& partModelMatrices) const;
+    void setPosition(const Vec3& position);
+    void setRotation(const Vec3& rotationRadians);
+    void setScale(const Vec3& scale);
+    void draw(const class Shader& shader, const Mat4& viewProjectionMatrix) const;
+    void drawWithTransform(
+        const class Shader& shader,
+        const Mat4& viewProjectionMatrix,
+        const Mat4& transform
+    ) const;
 
 private:
+    Mat4 modelMatrix() const;
+
     std::vector<Mesh> meshes_;
-    std::vector<Mesh> armMeshes_;
-    std::array<std::vector<Mesh>, static_cast<std::size_t>(CharacterPart::Count)>
-        characterPartMeshes_;
+    Vec3 position_ = {0.0f, 0.0f, 0.0f};
+    Vec3 rotationRadians_ = {0.0f, 0.0f, 0.0f};
+    Vec3 scale_ = {1.0f, 1.0f, 1.0f};
 };
 
 #endif

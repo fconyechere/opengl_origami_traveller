@@ -1,0 +1,80 @@
+{
+  "up_axis": "+Y",
+  "facing": "+Z (assumed)",
+  "units": "model units (height = 1.0)",
+  "root": {
+    "name": "torso",
+    "world_pivot": [
+      -0.016045,
+      0.3115,
+      -0.019308
+    ]
+  },
+  "joints": {
+    "head": {
+      "parent": "torso",
+      "offset_from_parent": [
+        0.003922,
+        0.4645,
+        0.00261
+      ],
+      "world_pivot": [
+        -0.012124,
+        0.776,
+        -0.016698
+      ]
+    },
+    "arm_L": {
+      "parent": "torso",
+      "offset_from_parent": [
+        0.148545,
+        0.393708,
+        -0.000657
+      ],
+      "world_pivot": [
+        0.1325,
+        0.705208,
+        -0.019965
+      ]
+    },
+    "arm_R": {
+      "parent": "torso",
+      "offset_from_parent": [
+        -0.136455,
+        0.387345,
+        -0.000598
+      ],
+      "world_pivot": [
+        -0.1525,
+        0.698845,
+        -0.019906
+      ]
+    },
+    "leg_L": {
+      "parent": "torso",
+      "offset_from_parent": [
+        0.041295,
+        0.0,
+        -1.4e-05
+      ],
+      "world_pivot": [
+        0.02525,
+        0.3115,
+        -0.019321
+      ]
+    },
+    "leg_R": {
+      "parent": "torso",
+      "offset_from_parent": [
+        -0.041295,
+        0.0,
+        1.4e-05
+      ],
+      "world_pivot": [
+        -0.057341,
+        0.3115,
+        -0.019294
+      ]
+    }
+  }
+}

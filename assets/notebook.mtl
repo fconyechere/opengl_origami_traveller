@@ -1,0 +1,11 @@
+newmtl NotebookPages
+Ka 0.80 0.78 0.70
+Kd 0.98 0.96 0.88
+Ks 0.05 0.05 0.05
+Ns 16.0
+
+newmtl NotebookCover
+Ka 0.03 0.08 0.16
+Kd 0.08 0.22 0.45
+Ks 0.10 0.10 0.10
+Ns 24.0

@@ -13,6 +13,7 @@ Mesh::Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& no
       vertexCount_(0),
       materialColor_(materialColor),
       usesTexture_(usesTexture) {
+    // Validate the CPU arrays before handing anything to OpenGL.
     if (positions.empty() || positions.size() % 9 != 0) {
         throw std::invalid_argument(
             "A triangle mesh must contain a non-empty multiple of three 3D vertices"
@@ -39,6 +40,8 @@ Mesh::Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& no
         throw std::length_error("Mesh vertex data is too large for OpenGL");
     }
 
+    // This project stores triangles directly, so every three floats make one
+    // position and every three positions make one triangle.
     vertexCount_ = static_cast<GLsizei>(positions.size() / 3);
     glGenVertexArrays(1, &vertexArray_);
     glGenBuffers(1, &vertexBuffer_);
@@ -50,8 +53,10 @@ Mesh::Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& no
         throw std::runtime_error("Could not allocate OpenGL mesh buffers");
     }
 
+    // The VAO remembers how these buffers should be interpreted when drawing.
     glBindVertexArray(vertexArray_);
 
+    // Attribute 0 is the vertex position used by scene.vert.
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer_);
     glBufferData(
         GL_ARRAY_BUFFER,
@@ -62,6 +67,7 @@ Mesh::Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& no
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), nullptr);
     glEnableVertexAttribArray(0);
 
+    // Attribute 1 stores the normal used by the lighting calculation.
     glBindBuffer(GL_ARRAY_BUFFER, normalBuffer_);
     glBufferData(
         GL_ARRAY_BUFFER,
@@ -72,6 +78,8 @@ Mesh::Mesh(const std::vector<GLfloat>& positions, const std::vector<GLfloat>& no
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), nullptr);
     glEnableVertexAttribArray(1);
 
+    // Attribute 2 stores UV coordinates, even for meshes that do not use a
+    // texture. Those meshes just receive placeholder coordinates.
     glBindBuffer(GL_ARRAY_BUFFER, textureCoordinateBuffer_);
     glBufferData(
         GL_ARRAY_BUFFER,
@@ -125,6 +133,8 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
 }
 
 void Mesh::draw(const Shader& shader) const {
+    // Material information is per mesh, while the actual vertex data is
+    // already sitting on the GPU.
     shader.setVector3("materialColor", materialColor_);
     shader.setInteger("usesTexture", usesTexture_ ? 1 : 0);
     glBindVertexArray(vertexArray_);
@@ -132,6 +142,7 @@ void Mesh::draw(const Shader& shader) const {
 }
 
 void Mesh::release() {
+    // OpenGL resources are manual, so clean up every buffer we created.
     if (vertexBuffer_ != 0) {
         glDeleteBuffers(1, &vertexBuffer_);
         vertexBuffer_ = 0;

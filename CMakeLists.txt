@@ -48,6 +48,12 @@ add_executable(deliverable2
     src/Shader.cpp
     src/Mesh.cpp
     src/Model.cpp
+    src/Camera.cpp
+    src/Texture.cpp
+    src/Scene.cpp
+    src/Wind.cpp
+    src/Bird.cpp
+    src/Traveler.cpp
     src/ProceduralTree.cpp
     src/Landscape.cpp
 )

@@ -10,22 +10,26 @@ Deliverable2/
 ├── assets/       Models, textures, and other runtime assets
 ├── shaders/      GLSL shader source files
 ├── src/
-│   ├── main.cpp  Window setup, scene setup, and render loop
-│   ├── Shader.h  Shader program interface
-│   ├── Shader.cpp
-│   ├── Mesh.h    GPU mesh interface
-│   ├── Mesh.cpp
-│   ├── Model.h   Collection of meshes
-│   └── Model.cpp
+│   ├── main.cpp       Window setup and render loop
+│   ├── Camera.h/.cpp  Orbit camera and input
+│   ├── Scene.h/.cpp   Scene objects and draw order
+│   ├── Traveler.h/.cpp
+│   ├── Texture.h/.cpp Texture loading and ownership
+│   ├── Shader.h/.cpp  Shader program interface
+│   ├── Mesh.h/.cpp    GPU mesh interface
+│   ├── Model.h/.cpp   Imported geometry and transforms
+│   └── Landscape.h/.cpp
 └── CMakeLists.txt
 ```
 
-`main.cpp` creates a window and scene, then runs the render loop. `Shader` loads
-and compiles the GLSL files; `Mesh` owns the vertex array and buffer; `Model`
-groups imported meshes so the scene can draw them together. The current scene
-loads `assets/table.obj` and `assets/notebook.obj` through Assimp. Their OBJ
-material diffuse colors are passed to the fragment shader and combined with
-the directional lighting.
+`main.cpp` creates the window and runs the render loop. `Camera` owns orbit
+input and view-projection math. `Scene` owns the table, notebook, landscape,
+traveler, and notebook texture, and controls their update and draw order.
+`Shader` loads and compiles the GLSL files; `Mesh` owns vertex arrays and
+buffers; `Model` loads imported meshes and owns their position, rotation, and
+scale. The current scene loads `assets/table.obj` and `assets/notebook.obj`
+through Assimp. Their OBJ material diffuse colors are passed to the fragment
+shader and combined with the directional lighting.
 
 The project uses the GLM math library supplied with Lab 4 for vectors and
 matrices. `src/GraphicsMath.h` keeps the scene's existing helper names while
